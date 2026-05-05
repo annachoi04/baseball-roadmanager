@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>한화 직관 로드매니저</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f0; color: #1a1a1a; min-height: 100vh; }
+
+.onboarding { display: flex; flex-direction: column; min-height: 100vh; max-width: 480px; margin: 0 auto; }
+.progress-bar { display: flex; gap: 6px; padding: 52px 24px 0; }
+.progress-dot { flex: 1; height: 3px; border-radius: 99px; background: #e0e0d8; transition: background 0.3s; }
+.progress-dot.active { background: #1a1a2e; }
+.ob-step-wrap { display: none; flex-direction: column; flex: 1; }
+.ob-step-wrap.active { display: flex; }
+.ob-header { padding: 24px 24px 16px; }
+.ob-step { font-size: 12px; color: #aaa; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px; }
+.ob-title { font-size: 26px; font-weight: 500; line-height: 1.3; }
+.ob-sub { font-size: 15px; color: #888; margin-top: 8px; }
+.ob-body { flex: 1; padding: 8px 24px; overflow-y: auto; }
+.ob-footer { padding: 16px 24px 32px; }
+.next-btn { width: 100%; padding: 16px; background: #1a1a2e; color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 500; cursor: pointer; transition: opacity 0.15s; }
+.next-btn:disabled { opacity: 0.25; cursor: not-allowed; }
+.next-btn:hover:not(:disabled) { opacity: 0.85; }
+.back-btn { width: 100%; padding: 12px; background: transparent; color: #888; border: none; font-size: 14px; cursor: pointer; margin-top: 8px; }
+
+.player-search { width: 100%; padding: 12px 14px; border: 1.5px solid #e0e0d8; border-radius: 10px; font-size: 15px; background: white; margin-bottom: 12px; outline: none; }
+.player-search:focus { border-color: #1a1a2e; }
+.selected-count { font-size: 13px; color: #888; margin-bottom: 10px; }
+.selected-count span { color: #ff6600; font-weight: 500; }
+.pos-section { margin-bottom: 16px; }
+.pos-label { font-size: 11px; font-weight: 500; color: #aaa; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+.player-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.player-item { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; border: 1.5px solid #e0e0d8; background: white; cursor: pointer; transition: all 0.15s; }
+.player-item:hover { border-color: #bbb; }
+.player-item.selected { border-color: #ff6600; background: #fff8f3; }
+.player-num { width: 28px; height: 28px; border-radius: 50%; background: #f0efe8; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; color: #666; flex-shrink: 0; }
+.player-item.selected .player-num { background: #ff6600; color: white; }
+.player-name { font-size: 14px; font-weight: 500; }
+.player-pos-tag { font-size: 11px; color: #999; margin-top: 1px; }
+.check-mark { margin-left: auto; width: 18px; height: 18px; border-radius: 50%; background: #ff6600; display: none; align-items: center; justify-content: center; flex-shrink: 0; }
+.check-mark::after { content: ''; display: block; width: 5px; height: 9px; border-right: 2px solid white; border-bottom: 2px solid white; transform: rotate(45deg) translate(-1px,-1px); }
+.player-item.selected .check-mark { display: flex; }
+
+.confirm-card { background: white; border-radius: 14px; padding: 18px; border: 0.5px solid #e0e0d8; margin-bottom: 12px; }
+.confirm-label { font-size: 11px; color: #aaa; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 500; margin-bottom: 10px; }
+.player-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.player-chip { padding: 5px 10px; background: #fff0e6; border-radius: 20px; font-size: 13px; font-weight: 500; color: #cc4400; }
+.location-select { display: flex; gap: 10px; margin-top: 8px; }
+.loc-card { flex: 1; padding: 16px; border: 1.5px solid #e0e0d8; border-radius: 12px; background: white; cursor: pointer; transition: all 0.15s; text-align: center; }
+.loc-card:hover { border-color: #bbb; }
+.loc-card.selected { border-color: #ff6600; background: #fff8f3; }
+.loc-card-title { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
+.loc-card-sub { font-size: 12px; color: #999; }
+.loc-card.selected .loc-card-title { color: #cc4400; }
+
+/* 메인 앱 */
+.app { display: none; flex-direction: column; min-height: 100vh; }
+.header { background: #1a1a2e; color: white; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; }
+.header-left { display: flex; align-items: center; gap: 10px; }
+.logo { width: 32px; height: 32px; background: #ff6600; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+.header h1 { font-size: 17px; font-weight: 500; }
+.header-sub { font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 1px; }
+.settings-btn { width: 32px; height: 32px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: transparent; color: white; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }
+
+.container { max-width: 480px; margin: 0 auto; padding: 16px; width: 100%; }
+.section-label { font-size: 11px; font-weight: 500; color: #888; text-transform: uppercase; letter-spacing: 0.08em; margin: 16px 0 8px; }
+
+.location-row { display: flex; gap: 8px; margin-bottom: 16px; }
+.location-btn { flex: 1; padding: 11px; border: 1.5px solid #e0e0d8; border-radius: 10px; background: white; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.15s; color: #555; }
+.location-btn.active { border-color: #1a1a2e; background: #1a1a2e; color: white; }
+
+.cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.cal-month { font-size: 17px; font-weight: 500; }
+.cal-nav { display: flex; gap: 6px; }
+.cal-nav-btn { width: 32px; height: 32px; border: 1px solid #e0e0d8; border-radius: 8px; background: white; cursor: pointer; font-size: 16px; color: #444; display: flex; align-items: center; justify-content: center; }
+.cal-grid { background: white; border-radius: 14px; border: 0.5px solid #e0e0d8; overflow: hidden; }
+.cal-dow { display: grid; grid-template-columns: repeat(7, 1fr); background: #f5f5f0; }
+.cal-dow-cell { text-align: center; padding: 8px 0; font-size: 11px; font-weight: 500; color: #999; }
+.cal-dow-cell:first-child { color: #e85d4a; }
+.cal-dow-cell:last-child { color: #5b8fe8; }
+.cal-body { display: grid; grid-template-columns: repeat(7, 1fr); }
+.cal-cell { min-height: 72px; border-top: 0.5px solid #f0efe8; border-right: 0.5px solid #f0efe8; padding: 6px 4px 4px; cursor: default; transition: background 0.1s; }
+.cal-cell:nth-child(7n) { border-right: none; }
+.cal-cell.has-game { cursor: pointer; }
+.cal-cell.has-game:hover { background: #fafaf7; }
+.cal-cell.selected-day { background: #fff8f0; }
+.cal-cell.other-month .cal-day { color: #ccc; }
+.cal-day { font-size: 12px; font-weight: 500; color: #444; margin-bottom: 3px; }
+.cal-cell:nth-child(7n+1) .cal-day { color: #e85d4a; }
+.cal-cell:nth-child(7n) .cal-day { color: #5b8fe8; }
+.cal-cell.other-month:nth-child(7n+1) .cal-day,
+.cal-cell.other-month:nth-child(7n) .cal-day { color: #ddd; }
+.game-chip { border-radius: 5px; padding: 3px 5px; font-size: 10px; font-weight: 500; line-height: 1.3; margin-bottom: 2px; }
+.game-chip.home { background: #fff0e6; color: #cc4400; }
+.game-chip.away { background: #f0efe8; color: #666; }
+.game-chip.win { background: #eaf3de; color: #3b6d11; }
+.game-chip.lose { background: #faece7; color: #993c1d; }
+.game-chip-opp { display: block; }
+.game-chip-score { display: block; font-size: 9px; margin-top: 1px; font-weight: 700; }
+.game-chip-venue { display: block; font-size: 9px; opacity: 0.7; margin-top: 1px; }
+.loading-bar { text-align: center; padding: 40px; color: #888; font-size: 14px; grid-column: span 7; }
+
+/* 판단 패널 */
+.judge-panel { background: white; border-radius: 16px; padding: 20px; margin-top: 16px; border: 0.5px solid #e0e0d8; }
+.judge-game-info { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; padding-bottom: 14px; border-bottom: 0.5px solid #f0efe8; }
+.judge-game-title { font-size: 18px; font-weight: 500; }
+.judge-game-meta { font-size: 13px; color: #888; margin-top: 3px; }
+.home-badge { font-size: 11px; padding: 3px 9px; border-radius: 20px; font-weight: 500; flex-shrink: 0; }
+.home-badge.home { background: #fff0e6; color: #cc4400; }
+.home-badge.away { background: #f0efe8; color: #666; }
+.home-badge.past { background: #f0efe8; color: #888; }
+
+.evaluate-btn { width: 100%; padding: 14px; background: #1a1a2e; color: white; border: none; border-radius: 11px; font-size: 15px; font-weight: 500; cursor: pointer; margin-bottom: 16px; transition: opacity 0.15s; }
+.evaluate-btn:hover { opacity: 0.85; }
+.evaluate-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.result-area { display: none; }
+.result-area.show { display: block; }
+
+.verdict { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.verdict-badge { width: 52px; height: 52px; border-radius: 13px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; }
+.verdict-badge.go { background: #eaf3de; color: #3b6d11; }
+.verdict-badge.maybe { background: #faeeda; color: #854f0b; }
+.verdict-badge.no { background: #faece7; color: #993c1d; }
+.verdict-text h2 { font-size: 19px; font-weight: 500; }
+.verdict-text p { font-size: 13px; color: #888; margin-top: 2px; }
+
+.score-bar-wrap { margin-bottom: 16px; }
+.score-bar-label { display: flex; justify-content: space-between; font-size: 13px; color: #888; margin-bottom: 5px; }
+.score-bar-track { height: 7px; background: #f0efe8; border-radius: 99px; overflow: hidden; }
+.score-bar-fill { height: 100%; border-radius: 99px; transition: width 0.6s cubic-bezier(0.4,0,0.2,1); }
+.fill-go { background: #639922; }
+.fill-maybe { background: #ef9f27; }
+.fill-no { background: #d85a30; }
+
+/* 조건 토글 */
+.conditions { display: flex; flex-direction: column; gap: 7px; margin-bottom: 16px; }
+.condition-row { display: flex; flex-direction: column; }
+.condition-main { display: flex; align-items: center; gap: 9px; font-size: 13px; cursor: pointer; padding: 2px 0; }
+.condition-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.dot-pass { background: #639922; }
+.dot-warn { background: #ef9f27; }
+.dot-fail { background: #d85a30; }
+.cond-detail { color: #999; font-size: 12px; }
+.condition-score { margin-left: auto; font-size: 12px; font-weight: 500; color: #888; }
+.cond-toggle-icon { font-size: 10px; color: #bbb; margin-left: 4px; transition: transform 0.2s; }
+.cond-toggle-icon.open { transform: rotate(180deg); }
+.condition-detail-box { display: none; margin-left: 16px; margin-top: 6px; padding: 10px 12px; background: #f8f8f5; border-radius: 8px; font-size: 12px; color: #666; line-height: 1.7; border-left: 2px solid #e0e0d8; }
+.condition-detail-box.show { display: block; }
+
+.message-box { background: #f5f5f0; border-radius: 10px; padding: 13px; font-size: 14px; line-height: 1.6; color: #444; margin-bottom: 14px; }
+
+.action-row { display: flex; gap: 8px; margin-bottom: 8px; }
+.action-btn { flex: 1; padding: 11px; border-radius: 10px; font-size: 14px; font-weight: 500; cursor: pointer; border: 1.5px solid #e0e0d8; background: white; color: #333; transition: opacity 0.15s; text-decoration: none; text-align: center; display: flex; align-items: center; justify-content: center; }
+.action-btn.primary { background: #1a1a2e; color: white; border-color: #1a1a2e; }
+.action-btn.beige { background: #f5f0e8; color: #7a6a50; border-color: #e8e0d0; }
+.action-btn.beige:hover { background: #ede8dc; }
+.action-btn:hover { opacity: 0.82; }
+
+.block-box { background: #faece7; border-radius: 10px; padding: 14px; margin-bottom: 14px; }
+.block-label { font-size: 11px; font-weight: 500; color: #993c1d; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+.block-msg { font-size: 13px; color: #712b13; line-height: 1.5; }
+
+/* 피드백 */
+.feedback-section { margin-top: 16px; padding-top: 16px; border-top: 0.5px solid #f0efe8; }
+.feedback-label { font-size: 13px; color: #888; margin-bottom: 10px; font-weight: 500; }
+.feedback-btns { display: flex; gap: 8px; margin-bottom: 10px; }
+.feedback-btn { flex: 1; padding: 10px; border-radius: 10px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1.5px solid #e0e0d8; background: white; color: #555; transition: all 0.15s; }
+.feedback-btn.selected { border-color: #ff6600; background: #fff8f3; color: #cc4400; }
+.feedback-memo { width: 100%; padding: 10px 12px; border: 1.5px solid #e0e0d8; border-radius: 10px; font-size: 14px; background: white; resize: none; height: 72px; outline: none; font-family: inherit; }
+.feedback-memo:focus { border-color: #1a1a2e; }
+.feedback-submit { width: 100%; padding: 12px; background: #1a1a2e; color: white; border: none; border-radius: 10px; font-size: 14px; color: white; cursor: pointer; margin-top: 8px; font-weight: 500; }
+.feedback-done { text-align: center; font-size: 14px; color: #639922; padding: 16px; background: #eaf3de; border-radius: 10px; }
+
+/* 설정 패널 */
+.settings-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100; }
+.settings-overlay.show { display: flex; align-items: flex-end; }
+.settings-panel { background: white; border-radius: 20px 20px 0 0; padding: 24px; width: 100%; max-height: 70vh; overflow-y: auto; }
+.settings-title { font-size: 17px; font-weight: 500; margin-bottom: 20px; }
+.settings-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 0.5px solid #f0efe8; }
+.settings-row-label { font-size: 15px; }
+.settings-row-value { font-size: 14px; color: #888; }
+.settings-edit-btn { font-size: 13px; color: #ff6600; font-weight: 500; border: none; background: none; cursor: pointer; }
+.close-settings { width: 100%; padding: 14px; margin-top: 16px; background: #f5f5f0; border: none; border-radius: 10px; font-size: 15px; color: #444; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<!-- 온보딩 -->
+<div class="onboarding" id="onboarding">
+  <div class="progress-bar">
+    <div class="progress-dot active" id="pd1"></div>
+    <div class="progress-dot" id="pd2"></div>
+    <div class="progress-dot" id="pd3"></div>
+  </div>
+  <div class="ob-step-wrap active" id="step1">
+    <div class="ob-header">
+      <div class="ob-step">Step 1 / 3</div>
+      <div class="ob-title">좋아하는 선수를<br>골라봐</div>
+      <div class="ob-sub">직관 추천에 반영할게. 나중에 바꿀 수 있어.</div>
+    </div>
+    <div class="ob-body">
+      <div class="selected-count">선택됨 <span id="selectedCount">0</span>명</div>
+      <input class="player-search" type="text" placeholder="선수 이름 검색" id="playerSearch" />
+      <div id="playerList"></div>
+    </div>
+    <div class="ob-footer">
+      <button class="next-btn" id="step1Next" disabled onclick="goStep(2)">다음</button>
+    </div>
+  </div>
+  <div class="ob-step-wrap" id="step2">
+    <div class="ob-header">
+      <div class="ob-step">Step 2 / 3</div>
+      <div class="ob-title">주로 어디서<br>출발해?</div>
+      <div class="ob-sub">나중에 경기마다 바꿀 수 있어.</div>
+    </div>
+    <div class="ob-body">
+      <div class="location-select">
+        <div class="loc-card selected" id="locSeoulCard" onclick="selectDefaultLocation('seoul')">
+          <div class="loc-card-title">서울</div>
+          <div class="loc-card-sub">서울역 기준</div>
+        </div>
+        <div class="loc-card" id="locDaejeonCard" onclick="selectDefaultLocation('daejeon')">
+          <div class="loc-card-title">대전</div>
+          <div class="loc-card-sub">대전역 기준</div>
+        </div>
+      </div>
+    </div>
+    <div class="ob-footer">
+      <button class="next-btn" onclick="goStep(3)">다음</button>
+      <button class="back-btn" onclick="goStep(1)">이전으로</button>
+    </div>
+  </div>
+  <div class="ob-step-wrap" id="step3">
+    <div class="ob-header">
+      <div class="ob-step">Step 3 / 3</div>
+      <div class="ob-title">이렇게 설정할게!</div>
+      <div class="ob-sub">나중에 설정에서 언제든 바꿀 수 있어.</div>
+    </div>
+    <div class="ob-body">
+      <div class="confirm-card">
+        <div class="confirm-label">출발지</div>
+        <div style="font-size:16px;font-weight:500;" id="confirmLocation"></div>
+      </div>
+      <div class="confirm-card">
+        <div class="confirm-label">좋아하는 선수</div>
+        <div class="player-chips" id="confirmPlayers"></div>
+      </div>
+    </div>
+    <div class="ob-footer">
+      <button class="next-btn" onclick="startApp()">시작하기</button>
+      <button class="back-btn" onclick="goStep(2)">이전으로</button>
+    </div>
+  </div>
+</div>
+
+<!-- 메인 앱 -->
+<div class="app" id="app">
+  <div class="header">
+    <div class="header-left">
+      <div class="logo">🦅</div>
+      <div>
+        <h1>직관 로드매니저</h1>
+        <div class="header-sub">한화 이글스</div>
+      </div>
+    </div>
+    <button class="settings-btn" onclick="openSettings()">⚙</button>
+  </div>
+  <div class="container">
+    <div class="section-label">지금 어디야?</div>
+    <div class="location-row">
+      <button class="location-btn" id="btnSeoul" onclick="setLocation('seoul')">서울 (서울역)</button>
+      <button class="location-btn" id="btnDaejeon" onclick="setLocation('daejeon')">대전 (대전역)</button>
+    </div>
+    <div class="cal-header">
+      <div class="cal-month" id="calMonth"></div>
+      <div class="cal-nav">
+        <button class="cal-nav-btn" onclick="changeMonth(-1)">‹</button>
+        <button class="cal-nav-btn" onclick="changeMonth(1)">›</button>
+      </div>
+    </div>
+    <div class="cal-grid" id="calGrid">
+      <div class="cal-dow">
+        <div class="cal-dow-cell">일</div><div class="cal-dow-cell">월</div>
+        <div class="cal-dow-cell">화</div><div class="cal-dow-cell">수</div>
+        <div class="cal-dow-cell">목</div><div class="cal-dow-cell">금</div>
+        <div class="cal-dow-cell">토</div>
+      </div>
+      <div class="cal-body" id="calBody"><div class="loading-bar">경기 일정 불러오는 중...</div></div>
+    </div>
+    <div class="judge-panel" id="judgePanel" style="display:none;">
+      <div class="judge-game-info">
+        <div>
+          <div class="judge-game-title" id="judgeTitle"></div>
+          <div class="judge-game-meta" id="judgeMeta"></div>
+        </div>
+        <div class="home-badge" id="judgeBadge"></div>
+      </div>
+      <div id="panelContent"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 설정 패널 -->
+<div class="settings-overlay" id="settingsOverlay" onclick="closeSettingsOutside(event)">
+  <div class="settings-panel">
+    <div class="settings-title">설정</div>
+    <div class="settings-row">
+      <div class="settings-row-label">좋아하는 선수</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="settings-row-value" id="settingsPlayers"></div>
+        <button class="settings-edit-btn" onclick="editSetting(1)">변경</button>
+      </div>
+    </div>
+    <div class="settings-row">
+      <div class="settings-row-label">기본 출발지</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="settings-row-value" id="settingsLocation"></div>
+        <button class="settings-edit-btn" onclick="editSetting(2)">변경</button>
+      </div>
+    </div>
+    <button class="close-settings" onclick="closeSettings()">닫기</button>
+  </div>
+</div>
+
+<script>
+var selectedPlayers = [];
+var defaultLocation = 'seoul';
+var currentLocation = 'seoul';
+var currentYear = new Date().getFullYear();
+var currentMonth = new Date().getMonth() + 1;
+var gameMap = {};
+var resultMap = {};
+var feedbackMap = {};
+var selectedGame = null;
+var allPlayers = [];
+var feedbackSelected = null;
+
+// 승리예측 상세 근거 (서버에서 받아서 저장)
+var lastWinDetail = {};
+
+function goStep(n) {
+  [1,2,3].forEach(function(i) {
+    document.getElementById('step'+i).classList.toggle('active', i===n);
+    document.getElementById('pd'+i).classList.toggle('active', i<=n);
+  });
+  if (n===3) renderConfirm();
+}
+
+function selectDefaultLocation(loc) {
+  defaultLocation = loc;
+  document.getElementById('locSeoulCard').classList.toggle('selected', loc==='seoul');
+  document.getElementById('locDaejeonCard').classList.toggle('selected', loc==='daejeon');
+}
+
+function renderConfirm() {
+  document.getElementById('confirmLocation').textContent = defaultLocation==='seoul'?'서울 (서울역)':'대전 (대전역)';
+  document.getElementById('confirmPlayers').innerHTML = selectedPlayers.map(function(p){return '<div class="player-chip">'+p.name+'</div>';}).join('');
+}
+
+function startApp() {
+  document.getElementById('onboarding').style.display = 'none';
+  var app = document.getElementById('app');
+  app.style.display = 'flex'; app.style.flexDirection = 'column';
+  currentLocation = defaultLocation;
+  updateLocationBtns();
+  document.getElementById('settingsPlayers').textContent = selectedPlayers.map(function(p){return p.name;}).join(', ');
+  document.getElementById('settingsLocation').textContent = defaultLocation==='seoul'?'서울':'대전';
+  loadAll();
+}
+
+fetch('/api/players')
+  .then(function(r){return r.json();})
+  .then(function(data){
+    allPlayers = data.players;
+    renderPlayers('');
+    document.getElementById('playerSearch').addEventListener('input', function(){renderPlayers(this.value);});
+  });
+
+function renderPlayers(query) {
+  var filtered = query ? allPlayers.filter(function(p){return p.name.includes(query);}) : allPlayers;
+  var positions = ['투수','포수','내야수','외야수'];
+  var html = '';
+  positions.forEach(function(pos) {
+    var pp = filtered.filter(function(p){return p.pos===pos;});
+    if (!pp.length) return;
+    html += '<div class="pos-section"><div class="pos-label">'+pos+'</div><div class="player-grid">';
+    pp.forEach(function(p) {
+      var sel = selectedPlayers.find(function(s){return s.num===p.num;});
+      html += '<div class="player-item'+(sel?' selected':'')+'" onclick="togglePlayer(\''+p.num+'\')">'+
+        '<div class="player-num">'+p.num+'</div>'+
+        '<div><div class="player-name">'+p.name+'</div><div class="player-pos-tag">'+p.pos+'</div></div>'+
+        '<div class="check-mark"></div></div>';
+    });
+    html += '</div></div>';
+  });
+  document.getElementById('playerList').innerHTML = html;
+}
+
+function togglePlayer(num) {
+  var p = allPlayers.find(function(x){return x.num===num;});
+  var idx = selectedPlayers.findIndex(function(x){return x.num===num;});
+  if (idx>=0) selectedPlayers.splice(idx,1); else selectedPlayers.push(p);
+  document.getElementById('selectedCount').textContent = selectedPlayers.length;
+  document.getElementById('step1Next').disabled = selectedPlayers.length===0;
+  renderPlayers(document.getElementById('playerSearch').value);
+}
+
+function setLocation(loc) {
+  currentLocation = loc;
+  updateLocationBtns();
+  document.getElementById('judgePanel').style.display = 'none';
+  selectedGame = null;
+}
+
+function updateLocationBtns() {
+  document.getElementById('btnSeoul').classList.toggle('active', currentLocation==='seoul');
+  document.getElementById('btnDaejeon').classList.toggle('active', currentLocation==='daejeon');
+}
+
+function changeMonth(d) {
+  currentMonth += d;
+  if (currentMonth>12){currentMonth=1;currentYear++;}
+  if (currentMonth<1){currentMonth=12;currentYear--;}
+  selectedGame = null;
+  document.getElementById('judgePanel').style.display = 'none';
+  loadAll();
+}
+
+function loadAll() {
+  var months=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  document.getElementById('calMonth').textContent = currentYear+'년 '+months[currentMonth-1];
+  document.getElementById('calBody').innerHTML = '<div class="loading-bar">불러오는 중...</div>';
+
+  Promise.all([
+    fetch('/api/schedule?month='+currentMonth).then(function(r){return r.json();}),
+    fetch('/api/results?month='+currentMonth).then(function(r){return r.json();}),
+    fetch('/api/feedback').then(function(r){return r.json();})
+  ]).then(function(results) {
+    gameMap = {};
+    resultMap = results[1].resultMap || {};
+    feedbackMap = {};
+    (results[2].feedbacks || []).forEach(function(f){ feedbackMap[f.date] = f; });
+    results[0].games.forEach(function(g) {
+      var parts = g.date.match(/(\d+)\.(\d+)/);
+      if (parts) {
+        var key = currentYear+'-'+String(currentMonth).padStart(2,'0')+'-'+parts[2].padStart(2,'0');
+        gameMap[key] = g;
+      }
+    });
+    renderCalendar();
+  }).catch(function(){
+    document.getElementById('calBody').innerHTML = '<div class="loading-bar">불러오기 실패</div>';
+  });
+}
+
+function renderCalendar() {
+  var today = new Date();
+  var todayStr = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+  var first = new Date(currentYear, currentMonth-1, 1);
+  var last = new Date(currentYear, currentMonth, 0);
+  var startDay = first.getDay();
+  var cells = '';
+  var prevLast = new Date(currentYear, currentMonth-1, 0).getDate();
+  for (var i=startDay-1;i>=0;i--) {
+    cells += '<div class="cal-cell other-month"><div class="cal-day">'+(prevLast-i)+'</div></div>';
+  }
+  for (var d=1;d<=last.getDate();d++) {
+    var dateStr = currentYear+'-'+String(currentMonth).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    var game = gameMap[dateStr];
+    var result = resultMap[dateStr];
+    var isSel = selectedGame && selectedGame._dateStr===dateStr;
+    var isPast = dateStr < todayStr;
+    var chipHtml = '';
+    if (game) {
+      if (isPast && result) {
+        var cls = result.won?'win':'lose';
+        chipHtml = '<div class="game-chip '+cls+'"><span class="game-chip-opp">vs '+game.opponent+'</span><span class="game-chip-score">'+result.hanwhaScore+':'+result.oppScore+' '+(result.won?'승':'패')+'</span></div>';
+      } else if (isPast) {
+        chipHtml = '<div class="game-chip away"><span class="game-chip-opp">vs '+game.opponent+'</span><span class="game-chip-venue">종료</span></div>';
+      } else {
+        var cls = game.isHome?'home':'away';
+        chipHtml = '<div class="game-chip '+cls+'"><span class="game-chip-opp">vs '+game.opponent+'</span><span class="game-chip-venue">'+game.venue+' '+game.time+'</span></div>';
+      }
+    }
+    cells += '<div class="cal-cell'+(game?' has-game':'')+(isSel?' selected-day':'')+'"'+(game?' onclick="selectGame(\''+dateStr+'\')"':'')+'>'+
+      '<div class="cal-day">'+d+'</div>'+chipHtml+'</div>';
+  }
+  var total = startDay+last.getDate();
+  var remain = total%7===0?0:7-(total%7);
+  for (var i=1;i<=remain;i++) {
+    cells += '<div class="cal-cell other-month"><div class="cal-day">'+i+'</div></div>';
+  }
+  document.getElementById('calBody').innerHTML = cells;
+}
+
+function selectGame(dateStr) {
+  var game = gameMap[dateStr];
+  if (!game) return;
+  game._dateStr = dateStr;
+  selectedGame = game;
+  feedbackSelected = null;
+
+  var today = new Date();
+  var todayStr = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+  var isPast = dateStr < todayStr;
+
+  document.getElementById('judgePanel').style.display = 'block';
+  var days=['일','월','화','수','목','금','토'];
+  var d = new Date(dateStr);
+  var label = currentMonth+'월 '+d.getDate()+'일 ('+days[d.getDay()]+')';
+  document.getElementById('judgeTitle').textContent = '한화 vs '+game.opponent;
+  document.getElementById('judgeMeta').textContent = label+' '+game.time+' · '+game.venue;
+  var badge = document.getElementById('judgeBadge');
+
+  if (isPast) {
+    badge.textContent = '종료';
+    badge.className = 'home-badge past';
+    renderFeedbackPanel(dateStr);
+  } else {
+    badge.textContent = game.isHome?'홈':'원정';
+    badge.className = 'home-badge '+(game.isHome?'home':'away');
+    document.getElementById('panelContent').innerHTML =
+      '<button class="evaluate-btn" id="evalBtn" onclick="judgeGame()">직관 가도 될까? 판단하기</button>'+
+      '<div class="result-area" id="resultArea"></div>';
+  }
+
+  renderCalendar();
+  document.getElementById('judgePanel').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function renderFeedbackPanel(dateStr) {
+  var existing = feedbackMap[dateStr];
+  var result = resultMap[dateStr];
+  var resultText = result ? (result.won ? '한화 '+result.hanwhaScore+' : '+result.oppScore+' 승' : '한화 '+result.hanwhaScore+' : '+result.oppScore+' 패') : '결과 없음';
+
+  if (existing) {
+    var emojiMap = {good:'좋았어', bad:'별로였어', notgo:'안 갔어'};
+    document.getElementById('panelContent').innerHTML =
+      '<div class="feedback-section">'+
+      '<div class="feedback-label">경기 결과: '+resultText+'</div>'+
+      '<div class="feedback-done">피드백: '+emojiMap[existing.feedback]+(existing.memo?' · '+existing.memo:'')+'</div>'+
+      '</div>';
+    return;
+  }
+
+  document.getElementById('panelContent').innerHTML =
+    '<div class="feedback-section">'+
+    '<div class="feedback-label">경기 결과: '+resultText+'</div>'+
+    '<div class="feedback-label" style="margin-top:12px;">직관 다녀왔어? 어땠어?</div>'+
+    '<div class="feedback-btns">'+
+    '<button class="feedback-btn" onclick="selectFeedback(\'good\', this)">좋았어</button>'+
+    '<button class="feedback-btn" onclick="selectFeedback(\'bad\', this)">별로였어</button>'+
+    '<button class="feedback-btn" onclick="selectFeedback(\'notgo\', this)">안 갔어</button>'+
+    '</div>'+
+    '<textarea class="feedback-memo" id="feedbackMemo" placeholder="한 줄 메모 (선택)"></textarea>'+
+    '<button class="feedback-submit" onclick="submitFeedback()">피드백 남기기</button>'+
+    '</div>';
+}
+
+function selectFeedback(type, btn) {
+  feedbackSelected = type;
+  document.querySelectorAll('.feedback-btn').forEach(function(b){b.classList.remove('selected');});
+  btn.classList.add('selected');
+}
+
+function submitFeedback() {
+  if (!feedbackSelected) { alert('어떠셨는지 선택해줘!'); return; }
+  var memo = document.getElementById('feedbackMemo') ? document.getElementById('feedbackMemo').value : '';
+  fetch('/api/feedback', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({game: selectedGame, feedback: feedbackSelected, memo: memo})
+  }).then(function(){
+    feedbackMap[selectedGame._dateStr] = {feedback: feedbackSelected, memo: memo};
+    document.getElementById('panelContent').innerHTML =
+      '<div class="feedback-section"><div class="feedback-done">피드백 고마워! 다음 직관 추천에 반영할게.</div></div>';
+  });
+}
+
+function judgeGame() {
+  if (!selectedGame) return;
+  var btn = document.getElementById('evalBtn');
+  btn.disabled = true; btn.textContent = '판단 중...';
+  fetch('/api/evaluate', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({game:selectedGame, location:currentLocation, favoritePlayers:selectedPlayers})
+  })
+    .then(function(r){return r.json();})
+    .then(function(data){
+      btn.disabled=false; btn.textContent='직관 가도 될까? 판단하기';
+      if (!data.success) throw new Error(data.error);
+      lastWinDetail = data;
+      renderResult(data.result, data.hanwhaStats, data.oppStats, data.insights);
+    })
+    .catch(function(e){
+      btn.disabled=false; btn.textContent='직관 가도 될까? 판단하기';
+      alert('오류: '+e.message);
+    });
+}
+
+function toggleCondDetail(idx) {
+  var box = document.getElementById('condDetail'+idx);
+  var icon = document.getElementById('condIcon'+idx);
+  if (!box) return;
+  box.classList.toggle('show');
+  icon.classList.toggle('open');
+}
+
+function renderResult(r, hanwhaStats, oppStats, insights) {
+  var vc = r.verdict==='GO'?'go':r.verdict==='애매'?'maybe':'no';
+  var ve = r.verdict==='GO'?'↑':r.verdict==='애매'?'–':'↓';
+  var html = '';
+
+  if (r.blocked) {
+    html += '<div class="block-box"><div class="block-label">이동 불가</div><div class="block-msg">'+r.blockReason+'</div></div>';
+    html += '<div class="action-row"><button class="action-btn" onclick="scrollToCalendar()">다른 경기 보기</button></div>';
+  } else {
+    html += '<div class="verdict"><div class="verdict-badge '+vc+'">'+ve+'</div><div class="verdict-text"><h2>'+r.verdict+'</h2><p>'+selectedGame.date+' · vs '+selectedGame.opponent+'</p></div></div>';
+    var pct = Math.round((r.score/9)*100);
+    html += '<div class="score-bar-wrap"><div class="score-bar-label"><span>종합 점수</span><span>'+r.score+' / 9점</span></div><div class="score-bar-track"><div class="score-bar-fill fill-'+vc+'" style="width:'+pct+'%"></div></div></div>';
+
+    html += '<div class="conditions">';
+    r.conditions.forEach(function(c, idx) {
+      var hasDetail = c.label === '승리 예측' && hanwhaStats;
+      html += '<div class="condition-row">';
+      html += '<div class="condition-main"'+(hasDetail?' onclick="toggleCondDetail('+idx+')"':'')+'>'+
+        '<div class="condition-dot dot-'+c.type+'"></div>'+
+        '<span>'+c.label+'</span>'+
+        '<span class="cond-detail"> · '+c.detail+'</span>'+
+        '<span class="condition-score">'+c.score+'</span>'+
+        (hasDetail?'<span class="cond-toggle-icon" id="condIcon'+idx+'">▼</span>':'')+
+        '</div>';
+
+      if (hasDetail && hanwhaStats && oppStats) {
+        var hw = hanwhaStats.wins; var hl = hanwhaStats.losses;
+        var ow = oppStats.wins; var ol = oppStats.losses;
+        var detailText = '한화 최근 '+hanwhaStats.recent5.length+'경기: '+hw+'승 '+hl+'패<br>';
+        detailText += hanwhaStats.recent5.map(function(g){ return g.won?'✓ '+g.ourScore+':'+g.oppScore:'✗ '+g.ourScore+':'+g.oppScore; }).join(' · ')+'<br><br>';
+        detailText += selectedGame.opponent+' 최근 '+oppStats.recent5.length+'경기: '+ow+'승 '+ol+'패<br>';
+        detailText += oppStats.recent5.map(function(g){ return g.won?'✓ '+g.ourScore+':'+g.oppScore:'✗ '+g.ourScore+':'+g.oppScore; }).join(' · ');
+        html += '<div class="condition-detail-box" id="condDetail'+idx+'">'+detailText+'</div>';
+      }
+      html += '</div>';
+    });
+    html += '</div>';
+
+    html += '<div class="message-box">'+r.message+'</div>';
+    if (insights && insights.length > 0) {
+  html += '<div style="margin-bottom:14px;">';
+  html += '<div style="font-size:11px;color:#aaa;text-transform:uppercase;letter-spacing:0.06em;font-weight:500;margin-bottom:8px;">내 직관 패턴</div>';
+  insights.forEach(function(insight) {
+    html += '<div style="font-size:13px;color:#666;padding:8px 12px;background:#f8f8f5;border-radius:8px;margin-bottom:6px;border-left:3px solid #ff6600;">💡 ' + insight + '</div>';
+  });
+  html += '</div>';
+}
+
+    var ticketUrl = 'https://www.ticketbay.co.kr';
+    var trainUrl = 'https://www.letskorail.com/';
+
+    if (r.verdict==='GO') {
+      html += '<div class="action-row"><a class="action-btn primary" href="'+ticketUrl+'" target="_blank">티켓 보러 가기</a><a class="action-btn" href="'+trainUrl+'" target="_blank">기차 예매</a></div>';
+      html += '<div class="action-row"><button class="action-btn" onclick="scrollToCalendar()">다른 경기 보기</button></div>';
+    } else {
+      html += '<div class="action-row"><button class="action-btn primary" onclick="showGoAnyway(this)">그래도 갈게</button><button class="action-btn" onclick="scrollToCalendar()">다른 경기 보기</button></div>';
+    }
+  }
+
+  var area = document.getElementById('resultArea');
+  area.innerHTML = html;
+  area.className = 'result-area show';
+}
+
+function showGoAnyway(btn) {
+  var ticketUrl = 'https://www.ticketbay.co.kr';
+  var trainUrl = 'https://www.letskorail.com/';
+  btn.parentElement.insertAdjacentHTML('afterend',
+    '<div class="action-row">'+
+    '<a class="action-btn beige" href="'+ticketUrl+'" target="_blank">티켓베이</a>'+
+    '<a class="action-btn beige" href="'+trainUrl+'" target="_blank">코레일</a>'+
+    '</div>');
+  btn.disabled = true;
+}
+
+function scrollToCalendar() {
+  document.getElementById('calGrid').scrollIntoView({behavior:'smooth',block:'start'});
+  document.getElementById('judgePanel').style.display = 'none';
+  selectedGame = null;
+  renderCalendar();
+}
+
+function openSettings() { document.getElementById('settingsOverlay').classList.add('show'); }
+function closeSettings() { document.getElementById('settingsOverlay').classList.remove('show'); }
+function closeSettingsOutside(e) { if(e.target===document.getElementById('settingsOverlay')) closeSettings(); }
+function editSetting(step) {
+  closeSettings();
+  document.getElementById('onboarding').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  goStep(step);
+}
+</script>
+</body>
+</html>
